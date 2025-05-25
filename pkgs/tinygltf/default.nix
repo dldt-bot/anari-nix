@@ -7,7 +7,7 @@
   stb,
 }:
 let
-  version = "v2.9.5";
+  version = "v2.9.6";
 in
 stdenv.mkDerivation {
   pname = "tinygltf";
@@ -17,7 +17,7 @@ stdenv.mkDerivation {
     owner = "syoyo";
     repo = "tinygltf";
     rev = version;
-    hash = "sha256-7GsLdjOAZvi/Lqu7mTWwvQTa5WokbGQlHy/CPoHipD8=";
+    hash = "sha256-3dBxfdXeTbzeQAXaBXFaflLgXYeuOfESdq6V3+0iCXY=";
   };
 
   nativeBuildInputs = [ cmake ];
