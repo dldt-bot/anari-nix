@@ -46,14 +46,14 @@ let
 in
 stdenv.mkDerivation {
   pname = "tsd";
-  version = "0.13.0-unstable-2026-08-12";
+  version = "0.13.0-unstable-2026-08-19";
 
   # Main source. Hosted as part of VisRTX.
   src = fetchFromGitHub {
     owner = "NVIDIA";
     repo = "VisRTX";
-    rev = "554e19a46e1af1a41b676529854d55b2b3fa250d";
-    hash = "sha256-65zNCZXw35+K4M145YD5gu1kDBjKyr3Zxo5tGoCXICg=";
+    rev = "8f31d491131544090257f05cac11f988ca428f77";
+    hash = "sha256-TAn84lANfzJUZ+gygr3N9IYQ3V5LfzFKbH2+KlSqkGY=";
   };
 
   postPatch = ''
@@ -79,6 +79,10 @@ stdenv.mkDerivation {
     mkdir -p "''${sourceRoot}/.anari_deps/tsd_ext_imguizmo/"
     cp "${imguizmo-src}" "''${sourceRoot}/.anari_deps/tsd_ext_imguizmo/71f14292205c3317122b39627ed98efce137086a.zip"
   '';
+
+  patches = [ ./0001-fix-io-build-against-OpenUSD-25.05.patch ];
+
+  patchFlags = [ "-p2" ];
 
   cmakeFlags = [
     (lib.cmakeBool "TSD_ENABLE_SERIALIZATION" true)
