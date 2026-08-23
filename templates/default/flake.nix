@@ -105,7 +105,7 @@
         {
           default = packages.mkShellNoCC {
             packages = [
-              packages.tsd
+              packages.vela
               devices
             ];
           };

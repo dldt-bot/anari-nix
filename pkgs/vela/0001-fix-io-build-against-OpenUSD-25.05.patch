@@ -8,14 +8,14 @@ HdMeshComputationResult only exist from 26.05 on, and the material
 schema accessors are non-const before it. Guard those behind PXR_VERSION
 so the USD importer builds on both 25.05 and 26.05.
 ---
- .../io/importers/detail/usd/UsdMaterials.cpp  | 52 ++++++++++++++++---
- tsd/src/tsd/io/usd/UsdResolvedGeometry.cpp    | 35 +++++++++----
+ src/vsr/io/importers/detail/usd/UsdMaterials.cpp | 52 ++++++++++++++++++----
+ src/vsr/io/usd/UsdResolvedGeometry.cpp           | 35 +++++++++++-----
  2 files changed, 70 insertions(+), 17 deletions(-)
 
-diff --git a/tsd/src/tsd/io/importers/detail/usd/UsdMaterials.cpp b/tsd/src/tsd/io/importers/detail/usd/UsdMaterials.cpp
-index 0d86166ec..9836fcf14 100644
---- a/tsd/src/tsd/io/importers/detail/usd/UsdMaterials.cpp
-+++ b/tsd/src/tsd/io/importers/detail/usd/UsdMaterials.cpp
+diff --git a/src/vsr/io/importers/detail/usd/UsdMaterials.cpp b/src/vsr/io/importers/detail/usd/UsdMaterials.cpp
+index f6fa20e..b5ae868 100644
+--- a/src/vsr/io/importers/detail/usd/UsdMaterials.cpp
++++ b/src/vsr/io/importers/detail/usd/UsdMaterials.cpp
 @@ -502,6 +502,32 @@ MaterialRef tryOmniPbrMapping(ImportContext &ctx,
    return material;
  }
@@ -70,7 +70,7 @@ index 0d86166ec..9836fcf14 100644
 +  return materialNetwork(material);
  }
  
- #if TSD_USD_HAS_MATERIALX
+ #if VSR_USD_HAS_MATERIALX
  
 +// The MaterialX definition of a Hydra node type, or null when MaterialX defines
 +// no such node. `HdMtlxGetNodeDef` also finds the definitions custom nodes ship
@@ -107,10 +107,10 @@ index 0d86166ec..9836fcf14 100644
      return {};
  
    pxr::HdMtlxTexturePrimvarData textures;
-diff --git a/tsd/src/tsd/io/usd/UsdResolvedGeometry.cpp b/tsd/src/tsd/io/usd/UsdResolvedGeometry.cpp
-index ac6e3d638..6713877ad 100644
---- a/tsd/src/tsd/io/usd/UsdResolvedGeometry.cpp
-+++ b/tsd/src/tsd/io/usd/UsdResolvedGeometry.cpp
+diff --git a/src/vsr/io/usd/UsdResolvedGeometry.cpp b/src/vsr/io/usd/UsdResolvedGeometry.cpp
+index 5d5d45d..fc9454e 100644
+--- a/src/vsr/io/usd/UsdResolvedGeometry.cpp
++++ b/src/vsr/io/usd/UsdResolvedGeometry.cpp
 @@ -297,6 +297,29 @@ bool TriangulatedPrimvar::isShared() const
  // is why the mesh resolver reaches for std::map rather than FlatMap.
  using TriangulatedPrimvars = std::map<std::string, TriangulatedPrimvar>;
@@ -162,4 +162,3 @@ index ac6e3d638..6713877ad 100644
      } else {
 -- 
 2.54.0
-
