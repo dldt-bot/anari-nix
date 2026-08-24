@@ -1,0 +1,165 @@
+From 79de5c3ef75d4121b0f3ad66898c16e1bdda0ae6 Mon Sep 17 00:00:00 2001
+From: Thomas Arcila <134677+tarcila@users.noreply.github.com>
+Date: Fri, 14 Aug 2026 15:51:09 -0400
+Subject: [PATCH] fix(io): build against OpenUSD 25.05
+
+HdMtlxGetNodeDef, HdMaterialSchema::GetRenderContexts and
+HdMeshComputationResult only exist from 26.05 on, and the material
+schema accessors are non-const before it. Guard those behind PXR_VERSION
+so the USD importer builds on both 25.05 and 26.05.
+---
+ .../io/importers/detail/usd/UsdMaterials.cpp  | 52 ++++++++++++++++---
+ tsd/src/tsd/io/usd/UsdResolvedGeometry.cpp    | 35 +++++++++----
+ 2 files changed, 70 insertions(+), 17 deletions(-)
+
+diff --git a/tsd/src/tsd/io/importers/detail/usd/UsdMaterials.cpp b/tsd/src/tsd/io/importers/detail/usd/UsdMaterials.cpp
+index 0d86166ec..9836fcf14 100644
+--- a/tsd/src/tsd/io/importers/detail/usd/UsdMaterials.cpp
++++ b/tsd/src/tsd/io/importers/detail/usd/UsdMaterials.cpp
+@@ -502,6 +502,32 @@ MaterialRef tryOmniPbrMapping(ImportContext &ctx,
+   return material;
+ }
+ 
++// The schema is a handle to the material's container, so these take it by
++// value: its accessors are non-const before OpenUSD 26.05.
++pxr::HdMaterialNetworkSchema materialNetwork(
++    pxr::HdMaterialSchema material, const pxr::TfToken &context)
++{
++  return material.GetMaterialNetwork(context);
++}
++
++pxr::HdMaterialNetworkSchema materialNetwork(pxr::HdMaterialSchema material)
++{
++  return material.GetMaterialNetwork();
++}
++
++// The Render Contexts a material carries. `GetRenderContexts()` only exists
++// from OpenUSD 26.05 on; the container the schema wraps is keyed by Render
++// Context, so enumerating its names gives the same list.
++pxr::TfTokenVector renderContexts(pxr::HdMaterialSchema material)
++{
++#if PXR_VERSION >= 2605
++  return material.GetRenderContexts();
++#else
++  const auto container = material.GetContainer();
++  return container ? container->GetNames() : pxr::TfTokenVector{};
++#endif
++}
++
+ // Try each Render Context in the caller's preference order, falling back per
+ // material so a Stage mixing network flavours resolves completely either way.
+ pxr::HdMaterialNetworkSchema selectNetwork(
+@@ -509,21 +535,34 @@ pxr::HdMaterialNetworkSchema selectNetwork(
+     const std::vector<std::string> &preference)
+ {
+   for (const auto &context : preference) {
+-    auto network = material.GetMaterialNetwork(pxr::TfToken(context));
++    auto network = materialNetwork(material, pxr::TfToken(context));
+     if (network && network.GetNodes())
+       return network;
+   }
+   // Nothing preferred matched: take whatever the material does have.
+-  for (const auto &context : material.GetRenderContexts()) {
+-    auto network = material.GetMaterialNetwork(context);
++  for (const auto &context : renderContexts(material)) {
++    auto network = materialNetwork(material, context);
+     if (network && network.GetNodes())
+       return network;
+   }
+-  return material.GetMaterialNetwork();
++  return materialNetwork(material);
+ }
+ 
+ #if TSD_USD_HAS_MATERIALX
+ 
++// The MaterialX definition of a Hydra node type, or null when MaterialX defines
++// no such node. `HdMtlxGetNodeDef` also finds the definitions custom nodes ship
++// in their own .mtlx file, but only exists from OpenUSD 26.05 on; older
++// releases get the plain standard-library lookup.
++MaterialX::NodeDefPtr materialXNodeDef(const pxr::TfToken &nodeType)
++{
++#if PXR_VERSION >= 2605
++  return pxr::HdMtlxGetNodeDef(nodeType, pxr::HdMtlxStdLibraries());
++#else
++  return pxr::HdMtlxStdLibraries()->getNodeDef(nodeType.GetString());
++#endif
++}
++
+ // The node a generated document holds under `name`, which OpenUSD's conversion
+ // places inside a node graph rather than at the document's top level.
+ MaterialX::NodePtr documentNode(
+@@ -730,7 +769,7 @@ MaterialRef tryMaterialXPassthrough(ImportContext &ctx,
+ 
+   // Prefer an authored MaterialX network, but a preview-surface network also
+   // converts through its own MaterialX node definitions.
+-  auto network = materialSchema.GetMaterialNetwork(MATERIALX_CONTEXT);
++  auto network = materialNetwork(materialSchema, MATERIALX_CONTEXT);
+   if (!network || !network.GetNodes())
+     network = selectNetwork(materialSchema, ctx.options->renderContexts);
+   if (!network || !network.GetNodes())
+@@ -751,8 +790,7 @@ MaterialRef tryMaterialXPassthrough(ImportContext &ctx,
+   // Only a terminal MaterialX itself defines can be converted. A
+   // UsdPreviewSurface terminal has no MaterialX node definition, and asking
+   // for one anyway yields a document that fails MaterialX's own validation.
+-  if (!pxr::HdMtlxGetNodeDef(networkInterface.GetNodeType(terminalNode),
+-          pxr::HdMtlxStdLibraries()))
++  if (!materialXNodeDef(networkInterface.GetNodeType(terminalNode)))
+     return {};
+ 
+   pxr::HdMtlxTexturePrimvarData textures;
+diff --git a/tsd/src/tsd/io/usd/UsdResolvedGeometry.cpp b/tsd/src/tsd/io/usd/UsdResolvedGeometry.cpp
+index ac6e3d638..6713877ad 100644
+--- a/tsd/src/tsd/io/usd/UsdResolvedGeometry.cpp
++++ b/tsd/src/tsd/io/usd/UsdResolvedGeometry.cpp
+@@ -297,6 +297,29 @@ bool TriangulatedPrimvar::isShared() const
+ // is why the mesh resolver reaches for std::map rather than FlatMap.
+ using TriangulatedPrimvars = std::map<std::string, TriangulatedPrimvar>;
+ 
++// Expand one face-varying primvar onto the triangulation. From OpenUSD 26.05 on
++// the call reports "Unchanged" when the mesh is already all triangles -- the
++// flattened input is then already one value per triangle corner, in triangle
++// order -- and leaves the output alone; earlier releases always expand and only
++// report success.
++bool triangulateFaceVaryingPrimvar(const pxr::HdMeshUtil &meshUtil,
++    const pxr::VtValue &source,
++    pxr::VtValue *triangulated)
++{
++  const auto result = meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
++      pxr::HdGetValueData(source),
++      int(source.GetArraySize()),
++      pxr::HdGetValueTupleType(source).type,
++      triangulated);
++#if PXR_VERSION >= 2605
++  if (result == pxr::HdMeshComputationResult::Unchanged)
++    *triangulated = source;
++  return result != pxr::HdMeshComputationResult::Error;
++#else
++  return result;
++#endif
++}
++
+ // Expand every primvar that has an attribute slot onto the triangulated
+ // topology, once, so that each Part only has to select the values for its own
+ // triangles. Primvars whose expansion fails or comes up short of the
+@@ -321,16 +344,8 @@ TriangulatedPrimvars triangulatePrimvars(const pxr::HdMeshUtil &meshUtil,
+       attribute.valuesPerTriangle = 1;
+     } else if (primvar.interpolation
+         == pxr::HdPrimvarSchemaTokens->faceVarying) {
+-      const auto result = meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
+-          pxr::HdGetValueData(primvar.value),
+-          int(primvar.value.GetArraySize()),
+-          pxr::HdGetValueTupleType(primvar.value).type,
+-          &attribute.value);
+-      // Unchanged means the mesh is already all triangles: the flattened
+-      // input is already one value per triangle corner, in triangle order.
+-      if (result == pxr::HdMeshComputationResult::Unchanged)
+-        attribute.value = primvar.value;
+-      else if (result != pxr::HdMeshComputationResult::Success)
++      if (!triangulateFaceVaryingPrimvar(
++              meshUtil, primvar.value, &attribute.value))
+         continue;
+       attribute.valuesPerTriangle = 3;
+     } else {
+-- 
+2.54.0
+
