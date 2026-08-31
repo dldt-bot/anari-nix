@@ -53,6 +53,7 @@
             anari-cycles
             anari-visionaray
             anari-ospray
+            anari-vsr
           ]
           ++ (lib.optionals pkgs.config.cudaSupport [
             anari-barney

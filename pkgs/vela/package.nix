@@ -24,16 +24,13 @@
   libxt,
   vtk,
   zlib,
+  python3,
   nix-update-script,
 }:
 let
   imgui-src = fetchurl {
     url = "https://github.com/ocornut/imgui/archive/refs/tags/v1.91.7-docking.zip";
     hash = "sha256-glnDJORdpGuZ8PQ4uBYfeOh0kmCzJmNnI9zHOnSwePQ=";
-  };
-  imnodes-src = fetchurl {
-    url = "https://github.com/Nelarius/imnodes/archive/refs/tags/v0.5.zip";
-    hash = "sha256-hRWz07KXmeLX00bSWHZ9izaqpBTEeeViOCkPySivNNk=";
   };
   imguizmo-src = fetchurl {
     url = "https://github.com/CedricGuillemet/ImGuizmo/archive/71f14292205c3317122b39627ed98efce137086a.zip";
@@ -62,16 +59,22 @@ stdenv.mkDerivation {
   postUnpack = ''
     mkdir -p "''${sourceRoot}/.anari_deps/vela_ext_imgui_sdl/"
     cp "${imgui-src}" "''${sourceRoot}/.anari_deps/vela_ext_imgui_sdl/v1.91.7-docking.zip"
-    mkdir -p "''${sourceRoot}/.anari_deps/vela_ext_imnodes/"
-    cp "${imnodes-src}" "''${sourceRoot}/.anari_deps/vela_ext_imnodes/v0.5.zip"
     mkdir -p "''${sourceRoot}/.anari_deps/vela_ext_imguizmo/"
     cp "${imguizmo-src}" "''${sourceRoot}/.anari_deps/vela_ext_imguizmo/71f14292205c3317122b39627ed98efce137086a.zip"
   '';
 
-  patches = [ ./0001-fix-io-build-against-OpenUSD-25.05.patch ];
+  patches = [
+    ./0001-fix-io-build-against-OpenUSD-25.05.patch
+    # Shared with anari-vsr, which references it from here.
+    ./0002-fetch-imnodes-only-for-viskores-demo.patch
+    ./0003-make-the-anari-device-library-optional.patch
+  ];
 
   cmakeFlags = [
     (lib.cmakeBool "BUILD_TESTING" false)
+    # The device is anari-vsr's to ship; building it here would have both
+    # packages carry the same library.
+    (lib.cmakeBool "VSR_BUILD_ANARI_DEVICE" false)
     (lib.cmakeBool "VSR_USE_CUDA" cudaSupport)
     (lib.cmakeBool "VSR_USE_ASSIMP" true)
     (lib.cmakeBool "VSR_USE_HDF5" true)
@@ -83,8 +86,8 @@ stdenv.mkDerivation {
     (lib.cmakeBool "VSR_USE_VTK" true)
   ];
 
-  # Only the ANARI device and the USD file format plugin have install rules;
-  # the applications are left in the build directory.
+  # Only the USD file format plugin has an install rule; the applications are
+  # left in the build directory.
   postInstall = ''
     mkdir -p "''${out}/bin"
     for app in \
@@ -107,6 +110,7 @@ stdenv.mkDerivation {
   nativeBuildInputs = [
     cmake
     pkg-config
+    python3
   ]
   ++ lib.optionals cudaSupport [
     cudaPackages.cuda_nvcc
