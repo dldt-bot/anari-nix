@@ -14,15 +14,15 @@
 }:
 stdenv.mkDerivation {
   pname = "anari-vsr";
-  version = "0-unstable-2026-08-25";
+  version = "0-unstable-2026-08-31";
 
   # Main source. Shared with the vela package, which builds the applications
   # from the same tree.
   src = fetchFromGitHub {
     owner = "NVIDIA";
     repo = "Vela";
-    rev = "d3465bb1fd17bcec5192a704b5bc4e3b6ff0cbbe";
-    hash = "sha256-aQalZvrS1nzAMvNSvcFBRV317lqlaTTh/ki5jM4T5Wc=";
+    rev = "11f0d31d5e7bc5c3fae6c0aeb15a614d3bf762d2";
+    hash = "sha256-8Yqe1JiVkENEmXg+yec4dZKgbjLxR+8h5Etygha5he4=";
   };
 
   # Lives in the vela package, which needs the same fix. Without it the
