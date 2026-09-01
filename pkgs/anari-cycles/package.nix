@@ -99,6 +99,12 @@ stdenv.mkDerivation {
       (cmakeBool "WITH_CYCLES_NANOVDB" true)
       (cmakeBool "WITH_CYCLES_OPENVDB" true)
       (cmakeBool "WITH_CYCLES_OSL" true)
+      # anari-cycles forces WITH_CYCLES_DEVICE_{CUDA,OPTIX,OPENIMAGEDENOISE}
+      # from these ANARI_CYCLES_USE_* options (CACHE ... FORCE), overriding
+      # any -D passed directly for those; also gates the WITH_OPTIX /
+      # WITH_OPENIMAGEDENOISE defines the ANARI device needs to compile in
+      # denoiser support.
+      (cmakeBool "ANARI_CYCLES_USE_OIDN" true)
     ]
     ++ lib.optionals stdenv.isDarwin (
       with lib;
@@ -110,9 +116,7 @@ stdenv.mkDerivation {
     ++ lib.optionals cudaSupport (
       with lib;
       [
-        (cmakeBool "WITH_CYCLES_DEVICE_CUDA" true)
         (cmakeBool "WITH_CUDA_DYNLOAD" false)
-        (cmakeBool "WITH_CYCLES_CUDA_BINARIES" true)
 
         # New CUDA setup in Nixpkgs prevents FindCUDA from working correctly
         (cmakeFeature "CMAKE_PREFIX_PATH" (cudaPackages.cuda_cudart + "/lib/stubs"))
@@ -121,7 +125,9 @@ stdenv.mkDerivation {
     ++ lib.optionals optixSupport (
       with lib;
       [
-        (cmakeBool "WITH_CYCLES_DEVICE_OPTIX" true)
+        (cmakeBool "ANARI_CYCLES_USE_OPTIX" true)
+        # Avoid FetchOptiXHeaders.cmake reaching the network in the sandbox.
+        (cmakeFeature "OPTIX_ROOT_DIR" (toString nvidia-optix8))
         (cmakeFeature "CYCLES_RUNTIME_OPTIX_ROOT_DIR" (toString nvidia-optix8))
       ]
     );
