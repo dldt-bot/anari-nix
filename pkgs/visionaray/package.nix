@@ -18,14 +18,14 @@
 }:
 stdenv.mkDerivation {
   pname = "visionaray";
-  version = "0.7.0-unstable-2026-08-23";
+  version = "0.7.0-unstable-2026-09-06";
 
   # Main source.
   src = fetchFromGitHub {
     owner = "szellmann";
     repo = "visionaray";
-    rev = "f776559eabb3e851a11ad1df199c3adf377dc6ef";
-    hash = "sha256-XbO9ErhxpAeiIo/xDSBXWumOfiOTaSaV/o+sh0/P0lM=";
+    rev = "90ff43b5388a1225fd28ee035c4c8b6cd8451f80";
+    hash = "sha256-lEvrgmNRUqbUlzj4TW6fNlafcwab9DLepe6MoAv+6zA=";
     fetchSubmodules = true;
   };
 
