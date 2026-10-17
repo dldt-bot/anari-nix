@@ -25,8 +25,8 @@ stdenv.mkDerivation {
   src = fetchFromGitHub {
     owner = "KhronosGroup";
     repo = "ANARI-SDK";
-    rev = "205fcb21f9c76b2c12f88f906e3369967ca6d4ce";
-    hash = "sha256-exlbMRi5g6yk1OusPp2w5pLLJ2Mo1pXwtr+Ktgwe8LU=";
+    rev = "4cc22f350b61d2168c6b07867005c63213edc6f4";
+    hash = "sha256-G09tBgiBD+dyG7b/FR4uyty6cb1dejbccvWTqXB1YLc=";
   };
   sourceRoot = "source/src/devices/helide_gpu";
 
